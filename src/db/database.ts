@@ -61,6 +61,27 @@ export class DatabaseConnection {
       CREATE INDEX IF NOT EXISTS idx_messages_nick ON messages(nick)
     `);
 
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS uploads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT NOT NULL UNIQUE,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        uploaded_by TEXT,
+        channel TEXT,
+        uploaded_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+
+    await this.run(`
+      CREATE INDEX IF NOT EXISTS idx_uploads_channel ON uploads(channel)
+    `);
+
+    await this.run(`
+      CREATE INDEX IF NOT EXISTS idx_uploads_uploaded_at ON uploads(uploaded_at)
+    `);
+
     this.initialized = true;
   }
 

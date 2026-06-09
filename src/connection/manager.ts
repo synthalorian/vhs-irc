@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import { IrcMessage } from '../irc/types';
 import { MessageRepository } from '../db/messages';
+import { UploadRepository } from '../db/uploads';
 
 export interface ClientConnection {
   id: string;
@@ -12,15 +13,18 @@ export interface ClientConnection {
 
 export interface ConnectionManagerOptions {
   messageRepository?: MessageRepository;
+  uploadRepository?: UploadRepository;
 }
 
 export class ConnectionManager {
   private clients = new Map<string, ClientConnection>();
   private messageHandlers: ((clientId: string, msg: IrcMessage) => void)[] = [];
   private messageRepository?: MessageRepository;
+  private uploadRepository?: UploadRepository;
 
   constructor(options?: ConnectionManagerOptions) {
     this.messageRepository = options?.messageRepository;
+    this.uploadRepository = options?.uploadRepository;
   }
 
   addClient(socket: WebSocket): string {

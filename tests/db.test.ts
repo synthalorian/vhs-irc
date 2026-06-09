@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { DatabaseConnection, MessageRepository, ChannelRepository, UserRepository, resetDatabase } from '../src/db/index';
+import { DatabaseConnection, MessageRepository, ChannelRepository, UserRepository, UploadRepository, resetDatabase } from '../src/db/index';
 import { unlinkSync } from 'fs';
 
 const TEST_DB = './data/test-vhs-irc.db';
@@ -23,10 +23,10 @@ describe('Database', () => {
   describe('initialization', () => {
     it('creates tables on init', async () => {
       const tables = await db.all<{ name: string }>(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name IN ('messages', 'channels', 'users')`
+        `SELECT name FROM sqlite_master WHERE type='table' AND name IN ('messages', 'channels', 'users', 'uploads')`
       );
       const names = tables.map(t => t.name).sort();
-      assert.deepStrictEqual(names, ['channels', 'messages', 'users']);
+      assert.deepStrictEqual(names, ['channels', 'messages', 'uploads', 'users']);
     });
 
     it('creates indexes on init', async () => {
@@ -349,11 +349,127 @@ describe('UserRepository', () => {
   });
 });
 
+describe('UploadRepository', () => {
+  let db: DatabaseConnection;
+  let uploads: UploadRepository;
+
+  beforeEach(async () => {
+    resetDatabase();
+    try { unlinkSync(TEST_DB); } catch { /* ignore */ }
+    db = new DatabaseConnection(TEST_DB);
+    await db.init();
+    uploads = new UploadRepository(db);
+  });
+
+  afterEach(async () => {
+    await db.close();
+    try { unlinkSync(TEST_DB); } catch { /* ignore */ }
+  });
+
+  it('creates an upload', async () => {
+    const upload = await uploads.create({
+      filename: 'abc123.png',
+      originalName: 'screenshot.png',
+      mimeType: 'image/png',
+      size: 12345,
+      uploadedBy: 'alice',
+      channel: '#general',
+    });
+
+    assert.strictEqual(upload.filename, 'abc123.png');
+    assert.strictEqual(upload.original_name, 'screenshot.png');
+    assert.strictEqual(upload.mime_type, 'image/png');
+    assert.strictEqual(upload.size, 12345);
+    assert.strictEqual(upload.uploaded_by, 'alice');
+    assert.strictEqual(upload.channel, '#general');
+    assert.ok(upload.id > 0);
+    assert.ok(upload.uploaded_at > 0);
+  });
+
+  it('creates an upload without optional fields', async () => {
+    const upload = await uploads.create({
+      filename: 'test.txt',
+      originalName: 'test.txt',
+      mimeType: 'text/plain',
+      size: 100,
+    });
+
+    assert.strictEqual(upload.uploaded_by, null);
+    assert.strictEqual(upload.channel, null);
+  });
+
+  it('finds upload by id', async () => {
+    const created = await uploads.create({
+      filename: 'findme.jpg',
+      originalName: 'findme.jpg',
+      mimeType: 'image/jpeg',
+      size: 5000,
+    });
+
+    const found = await uploads.findById(created.id);
+    assert.ok(found);
+    assert.strictEqual(found!.filename, 'findme.jpg');
+  });
+
+  it('finds upload by filename', async () => {
+    await uploads.create({
+      filename: 'byname.gif',
+      originalName: 'byname.gif',
+      mimeType: 'image/gif',
+      size: 2000,
+    });
+
+    const found = await uploads.findByFilename('byname.gif');
+    assert.ok(found);
+    assert.strictEqual(found!.mime_type, 'image/gif');
+  });
+
+  it('finds uploads by channel', async () => {
+    await uploads.create({ filename: 'a.png', originalName: 'a.png', mimeType: 'image/png', size: 100, channel: '#general' });
+    await uploads.create({ filename: 'b.png', originalName: 'b.png', mimeType: 'image/png', size: 200, channel: '#general' });
+    await uploads.create({ filename: 'c.png', originalName: 'c.png', mimeType: 'image/png', size: 300, channel: '#other' });
+
+    const general = await uploads.findByChannel('#general');
+    assert.strictEqual(general.length, 2);
+  });
+
+  it('finds recent uploads', async () => {
+    await uploads.create({ filename: 'old.png', originalName: 'old.png', mimeType: 'image/png', size: 100 });
+    await uploads.create({ filename: 'new.png', originalName: 'new.png', mimeType: 'image/png', size: 200 });
+
+    const recent = await uploads.findRecent(1);
+    assert.strictEqual(recent.length, 1);
+  });
+
+  it('deletes upload by id', async () => {
+    const upload = await uploads.create({ filename: 'del.png', originalName: 'del.png', mimeType: 'image/png', size: 100 });
+    await uploads.deleteById(upload.id);
+    const found = await uploads.findById(upload.id);
+    assert.strictEqual(found, undefined);
+  });
+
+  it('counts uploads', async () => {
+    assert.strictEqual(await uploads.count(), 0);
+    await uploads.create({ filename: 'a.png', originalName: 'a.png', mimeType: 'image/png', size: 100 });
+    assert.strictEqual(await uploads.count(), 1);
+  });
+
+  it('counts uploads by channel', async () => {
+    await uploads.create({ filename: 'a.png', originalName: 'a.png', mimeType: 'image/png', size: 100, channel: '#general' });
+    await uploads.create({ filename: 'b.png', originalName: 'b.png', mimeType: 'image/png', size: 200, channel: '#general' });
+    await uploads.create({ filename: 'c.png', originalName: 'c.png', mimeType: 'image/png', size: 300, channel: '#other' });
+
+    assert.strictEqual(await uploads.countByChannel('#general'), 2);
+    assert.strictEqual(await uploads.countByChannel('#other'), 1);
+  });
+});
+
 describe('Integration', () => {
   let db: DatabaseConnection;
   let messages: MessageRepository;
   let channels: ChannelRepository;
   let users: UserRepository;
+  let uploads: UploadRepository;
 
   beforeEach(async () => {
     resetDatabase();
@@ -363,6 +479,7 @@ describe('Integration', () => {
     messages = new MessageRepository(db);
     channels = new ChannelRepository(db);
     users = new UserRepository(db);
+    uploads = new UploadRepository(db);
   });
 
   afterEach(async () => {
@@ -371,7 +488,6 @@ describe('Integration', () => {
   });
 
   it('persists full IRC workflow', async () => {
-    // User joins channel
     const user = await users.create({
       nick: 'alice',
       username: 'aliceuser',
@@ -384,7 +500,6 @@ describe('Integration', () => {
       topic: 'General discussion',
     });
 
-    // Messages are sent
     const msg1 = await messages.create({
       channel: channel.name,
       nick: user.nick,
@@ -399,19 +514,41 @@ describe('Integration', () => {
       command: 'PRIVMSG',
     });
 
-    // Query history
     const history = await messages.findByChannel('#general');
     assert.strictEqual(history.length, 2);
     assert.strictEqual(history[0].content, 'Hello everyone!');
     assert.strictEqual(history[1].content, 'Hi alice!');
 
-    // Verify counts
     assert.strictEqual(await messages.count(), 2);
     assert.strictEqual(await channels.count(), 1);
     assert.strictEqual(await users.count(), 1);
 
-    // Channel messages are deleted when channel is deleted
     await channels.deleteByName('#general');
     assert.strictEqual(await channels.count(), 0);
+  });
+
+  it('persists file upload workflow', async () => {
+    const channel = await channels.create({ name: '#general', topic: 'General' });
+    const user = await users.create({ nick: 'alice' });
+
+    const upload = await uploads.create({
+      filename: 'file123.png',
+      originalName: 'screenshot.png',
+      mimeType: 'image/png',
+      size: 45678,
+      uploadedBy: user.nick,
+      channel: channel.name,
+    });
+
+    assert.strictEqual(upload.filename, 'file123.png');
+    assert.strictEqual(upload.uploaded_by, 'alice');
+    assert.strictEqual(upload.channel, '#general');
+
+    const byChannel = await uploads.findByChannel('#general');
+    assert.strictEqual(byChannel.length, 1);
+    assert.strictEqual(byChannel[0].original_name, 'screenshot.png');
+
+    assert.strictEqual(await uploads.count(), 1);
+    assert.strictEqual(await uploads.countByChannel('#general'), 1);
   });
 });
