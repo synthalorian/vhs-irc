@@ -2,6 +2,7 @@ import { DatabaseConnection } from './database';
 
 export interface MessageRecord {
   id: number;
+  network_id: number | null;
   channel: string | null;
   nick: string;
   content: string;
@@ -10,6 +11,7 @@ export interface MessageRecord {
 }
 
 export interface CreateMessageInput {
+  networkId?: number;
   channel?: string;
   nick: string;
   content: string;
@@ -24,11 +26,12 @@ export class MessageRepository {
     const command = input.command || 'PRIVMSG';
     const timestamp = input.timestamp || Math.floor(Date.now() / 1000);
     const channel = input.channel || null;
+    const networkId = input.networkId || null;
 
     await this.db.run(
-      `INSERT INTO messages (channel, nick, content, command, timestamp)
-       VALUES (?, ?, ?, ?, ?)`,
-      [channel, input.nick, input.content, command, timestamp]
+      `INSERT INTO messages (network_id, channel, nick, content, command, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [networkId, channel, input.nick, input.content, command, timestamp]
     );
 
     const row = await this.db.get<MessageRecord>(
@@ -53,6 +56,13 @@ export class MessageRepository {
     return this.db.all<MessageRecord>(
       `SELECT * FROM messages WHERE channel = ? ORDER BY timestamp ASC LIMIT ? OFFSET ?`,
       [channel, limit, offset]
+    );
+  }
+
+  async findByNetwork(networkId: number, limit = 100, offset = 0): Promise<MessageRecord[]> {
+    return this.db.all<MessageRecord>(
+      `SELECT * FROM messages WHERE network_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+      [networkId, limit, offset]
     );
   }
 

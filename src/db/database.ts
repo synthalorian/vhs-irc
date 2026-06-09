@@ -15,12 +15,32 @@ export class DatabaseConnection {
     if (this.initialized) return;
 
     await this.run(`
-      CREATE TABLE IF NOT EXISTS channels (
+      CREATE TABLE IF NOT EXISTS networks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
-        topic TEXT,
+        host TEXT NOT NULL,
+        port INTEGER NOT NULL DEFAULT 6667,
+        tls INTEGER NOT NULL DEFAULT 0,
+        nick TEXT NOT NULL,
+        username TEXT,
+        realname TEXT,
+        password TEXT,
+        auto_connect INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS channels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        network_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        topic TEXT,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE,
+        UNIQUE(network_id, name)
       )
     `);
 
@@ -40,11 +60,13 @@ export class DatabaseConnection {
     await this.run(`
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        network_id INTEGER,
         channel TEXT,
         nick TEXT NOT NULL,
         content TEXT NOT NULL,
         command TEXT NOT NULL DEFAULT 'PRIVMSG',
         timestamp INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE,
         FOREIGN KEY (channel) REFERENCES channels(name) ON DELETE CASCADE
       )
     `);
