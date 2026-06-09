@@ -2,7 +2,7 @@
   "name": "vhs-irc",
   "version": "0.1.0",
   "description": "Modern IRC bouncer + client hybrid with retro terminal UI",
-  "main": "dist/server.js",
+  "main": "dist/src/server.js",
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/server.ts",
@@ -13,7 +13,9 @@
   "dependencies": {
     "express": "^4.19",
     "ws": "^8.16",
-    "sqlite3": "^5.1"
+    "sqlite3": "^5.1",
+    "xterm": "^5.3",
+    "xterm-addon-fit": "^0.8"
   },
   "devDependencies": {
     "@types/node": "^20.11",

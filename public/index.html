@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vhs-irc — Retro Terminal</title>
+  <link rel="stylesheet" href="/css/crt-theme.css">
+  <link rel="stylesheet" href="/node_modules/xterm/css/xterm.css">
+</head>
+<body>
+  <div class="crt-container">
+    <div class="crt-header">
+      <span class="crt-title">vhs-irc</span>
+      <span class="crt-status" id="connection-status">● disconnected</span>
+    </div>
+    <div class="crt-screen">
+      <div id="terminal"></div>
+    </div>
+    <div class="crt-footer">
+      <span class="crt-hint">Type /connect &lt;server&gt; to start</span>
+      <span class="crt-hint">/join #channel | /msg nick message</span>
+    </div>
+  </div>
+
+  <script src="/node_modules/xterm/lib/xterm.js"></script>
+  <script src="/node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+  <script src="/js/terminal.js"></script>
+</body>
+</html>

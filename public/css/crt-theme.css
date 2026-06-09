@@ -1,0 +1,233 @@
+/* Retro CRT Theme for vhs-irc */
+
+:root {
+  --crt-bg: #0a0a0a;
+  --crt-fg: #33ff33;
+  --crt-fg-dim: #1a8a1a;
+  --crt-fg-bright: #66ff66;
+  --crt-scanline: rgba(0, 0, 0, 0.3);
+  --crt-glow: rgba(51, 255, 51, 0.15);
+  --crt-phosphor: #33ff33;
+  --crt-border: #1a1a1a;
+  --crt-border-glow: rgba(51, 255, 51, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--crt-bg);
+  color: var(--crt-fg);
+  font-family: 'Courier New', Courier, monospace;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.crt-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 8px;
+  background: var(--crt-bg);
+}
+
+.crt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px;
+  border: 2px solid var(--crt-border);
+  border-bottom: none;
+  background: linear-gradient(180deg, rgba(51, 255, 51, 0.05) 0%, transparent 100%);
+  text-shadow: 0 0 8px var(--crt-glow);
+}
+
+.crt-title {
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.crt-status {
+  font-size: 12px;
+  color: var(--crt-fg-dim);
+}
+
+.crt-status.connected {
+  color: var(--crt-fg-bright);
+  text-shadow: 0 0 10px var(--crt-glow);
+}
+
+.crt-screen {
+  flex: 1;
+  border: 2px solid var(--crt-border);
+  position: relative;
+  overflow: hidden;
+  background: var(--crt-bg);
+}
+
+/* Scanline effect */
+.crt-screen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--crt-scanline) 2px,
+    var(--crt-scanline) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Screen flicker animation */
+@keyframes flicker {
+  0% { opacity: 0.97; }
+  5% { opacity: 0.99; }
+  10% { opacity: 0.94; }
+  15% { opacity: 0.98; }
+  20% { opacity: 0.96; }
+  25% { opacity: 1; }
+  30% { opacity: 0.95; }
+  35% { opacity: 0.99; }
+  40% { opacity: 0.97; }
+  45% { opacity: 1; }
+  50% { opacity: 0.94; }
+  55% { opacity: 0.98; }
+  60% { opacity: 0.96; }
+  65% { opacity: 0.99; }
+  70% { opacity: 0.95; }
+  75% { opacity: 1; }
+  80% { opacity: 0.97; }
+  85% { opacity: 0.99; }
+  90% { opacity: 0.94; }
+  95% { opacity: 0.98; }
+  100% { opacity: 0.97; }
+}
+
+.crt-screen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
+  z-index: 11;
+}
+
+.crt-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 12px;
+  border: 2px solid var(--crt-border);
+  border-top: none;
+  background: linear-gradient(0deg, rgba(51, 255, 51, 0.05) 0%, transparent 100%);
+}
+
+.crt-hint {
+  font-size: 11px;
+  color: var(--crt-fg-dim);
+}
+
+/* xterm.js overrides for CRT look */
+#terminal {
+  height: 100%;
+  width: 100%;
+  padding: 8px;
+}
+
+#terminal .xterm {
+  padding: 4px;
+}
+
+#terminal .xterm-screen {
+  background: var(--crt-bg) !important;
+}
+
+#terminal .xterm-rows {
+  color: var(--crt-fg) !important;
+}
+
+/* Cursor glow */
+#terminal .xterm-cursor {
+  background: var(--crt-fg) !important;
+  box-shadow: 0 0 8px var(--crt-glow);
+}
+
+/* Selection styling */
+#terminal .xterm-selection div {
+  background: rgba(51, 255, 51, 0.3) !important;
+}
+
+/* Scrollbar styling */
+#terminal::-webkit-scrollbar {
+  width: 8px;
+}
+
+#terminal::-webkit-scrollbar-track {
+  background: var(--crt-bg);
+}
+
+#terminal::-webkit-scrollbar-thumb {
+  background: var(--crt-fg-dim);
+  border-radius: 4px;
+}
+
+#terminal::-webkit-scrollbar-thumb:hover {
+  background: var(--crt-fg);
+}
+
+/* Text glow effect for all terminal text */
+.xterm-char {
+  text-shadow: 0 0 2px var(--crt-glow);
+}
+
+/* Phosphor persistence effect on active lines */
+.xterm-row {
+  transition: opacity 0.1s ease;
+}
+
+/* Blink animation for cursor when focused */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.xterm-cursor.xterm-cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .crt-container {
+    padding: 4px;
+  }
+  
+  .crt-header {
+    padding: 2px 8px;
+  }
+  
+  .crt-title {
+    font-size: 12px;
+  }
+  
+  .crt-footer {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .crt-hint {
+    font-size: 10px;
+  }
+}
