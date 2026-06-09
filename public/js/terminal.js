@@ -39,7 +39,6 @@
     allowTransparency: true,
   };
 
-  // State
   let terminal = null;
   let fitAddon = null;
   let socket = null;
@@ -51,6 +50,7 @@
   let messageHistory = [];
   let historyIndex = -1;
   const statusEl = document.getElementById('connection-status');
+  let fileInput = null;
 
   // ─── Initialize Terminal ───
 
@@ -110,6 +110,7 @@
     terminal.writeln('    /quit [message]           ─ Disconnect from server');
     terminal.writeln('    /whois <nick>             ─ Get user info');
     terminal.writeln('    /me <action>              ─ Send action message');
+    terminal.writeln('    /upload                   ─ Upload a file');
     terminal.writeln('    /help                     ─ Show this help');
     terminal.writeln('    /clear                    ─ Clear terminal');
     terminal.writeln('');
@@ -300,6 +301,9 @@
       case 'me':
         handleMe(args);
         break;
+      case 'upload':
+        handleUpload();
+        break;
       case 'topic':
         sendIrcMessage('TOPIC', args);
         break;
@@ -400,6 +404,80 @@
     }
     sendIrcMessage('PRIVMSG', [target, `\x01ACTION ${action}\x01`]);
     printAction(currentNick, target, action);
+  }
+
+  function handleUpload() {
+    if (!fileInput) {
+      fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.style.display = 'none';
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        uploadFile(file);
+        fileInput.value = '';
+      });
+      document.body.appendChild(fileInput);
+    }
+    fileInput.click();
+  }
+
+  async function uploadFile(file) {
+    try {
+      printSystem(`Uploading ${file.name}...`);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('nick', currentNick || 'anonymous');
+      if (currentChannel) {
+        formData.append('channel', currentChannel);
+      }
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Upload failed' }));
+        printError(err.error || 'Upload failed');
+        return;
+      }
+      const result = await response.json();
+      printSystem(`Upload complete: ${result.filename}`);
+      if (result.mimeType?.startsWith('image/')) {
+        printImagePreview(result.url, result.filename);
+      } else {
+        printFileLink(result.url, result.filename, result.size);
+      }
+    } catch (err) {
+      printError(`Upload failed: ${err.message}`);
+    }
+  }
+
+  function printImagePreview(url, filename) {
+    const timestamp = getTimestamp();
+    terminal.writeln(`\x1b[90m${timestamp}\x1b[0m \x1b[36m[FILE]\x1b[0m ${escapeAnsi(filename)}`);
+    const container = document.getElementById('terminal');
+    const imgContainer = document.createElement('div');
+    imgContainer.className = 'file-preview';
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = filename;
+    img.className = 'file-preview-image';
+    imgContainer.appendChild(img);
+    container.appendChild(imgContainer);
+    terminal.scrollToBottom();
+  }
+
+  function printFileLink(url, filename, size) {
+    const timestamp = getTimestamp();
+    const sizeStr = formatFileSize(size);
+    terminal.writeln(`\x1b[90m${timestamp}\x1b[0m \x1b[36m[FILE]\x1b[0m ${escapeAnsi(filename)} (${sizeStr})`);
+    terminal.writeln(`  \x1b[34m${escapeAnsi(url)}\x1b[0m`);
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   }
 
   // ─── WebSocket ───
@@ -562,6 +640,21 @@
       case 'PING':
         sendIrcMessage('PONG', params);
         break;
+
+      case 'FILE_SHARE': {
+        const nick = params[0] || 'unknown';
+        const channel = params[1] || '';
+        const filename = params[2] || '';
+        const url = params[3] || '';
+        const mimeType = params[4] || '';
+        const size = parseInt(params[5] || '0', 10);
+        if (mimeType.startsWith('image/')) {
+          printImagePreview(url, `${nick} shared: ${filename}`);
+        } else {
+          printFileLink(url, `${nick} shared: ${filename}`, size);
+        }
+        break;
+      }
 
       default:
         // Numeric replies

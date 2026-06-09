@@ -3,11 +3,13 @@ import { Server as HttpServer } from 'http';
 import { IrcMessage } from '../irc/types';
 import { ConnectionManager } from '../connection/manager';
 import { MessageRepository } from '../db/messages';
+import { UploadRepository } from '../db/uploads';
 
 export interface WebSocketServerOptions {
   httpServer: HttpServer;
   path?: string;
   messageRepository?: MessageRepository;
+  uploadRepository?: UploadRepository;
 }
 
 export class IrcWebSocketServer {
@@ -17,6 +19,7 @@ export class IrcWebSocketServer {
   constructor(options: WebSocketServerOptions) {
     this.connections = new ConnectionManager({
       messageRepository: options.messageRepository,
+      uploadRepository: options.uploadRepository,
     });
     this.wss = new WebSocketServer({
       server: options.httpServer,
