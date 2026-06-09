@@ -45,12 +45,19 @@ Modern IRC bouncer + client hybrid with persistent history, file uploads, and a 
 **Goal:** Phase 3: SQLite persistence (messages, channels, users)
 
 **Deliverables:**
-- [ ] Core implementation
-- [ ] Tests
+- [x] Core implementation
+- [x] Tests
 - [ ] Documentation update
 
 **Notes:**
-- 
+- Database layer in `src/db/` with promise-based sqlite3 wrapper
+- Tables: messages, channels, users with proper indexes
+- MessageRepository: create, find by channel/nick/id, search, delete, count
+- ChannelRepository: create, find by name/id, update topic, delete, count
+- UserRepository: create, find by nick/id, update fields, delete, count
+- Integrated into ConnectionManager for automatic PRIVMSG persistence
+- Server initializes DB on startup and closes gracefully on SIGTERM
+- 35 DB tests covering all repositories + integration workflow 
 
 ---
 

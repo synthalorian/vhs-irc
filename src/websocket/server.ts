@@ -2,10 +2,12 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server as HttpServer } from 'http';
 import { IrcMessage } from '../irc/types';
 import { ConnectionManager } from '../connection/manager';
+import { MessageRepository } from '../db/messages';
 
 export interface WebSocketServerOptions {
   httpServer: HttpServer;
   path?: string;
+  messageRepository?: MessageRepository;
 }
 
 export class IrcWebSocketServer {
@@ -13,7 +15,9 @@ export class IrcWebSocketServer {
   public readonly connections: ConnectionManager;
 
   constructor(options: WebSocketServerOptions) {
-    this.connections = new ConnectionManager();
+    this.connections = new ConnectionManager({
+      messageRepository: options.messageRepository,
+    });
     this.wss = new WebSocketServer({
       server: options.httpServer,
       path: options.path || '/ws',
@@ -22,7 +26,6 @@ export class IrcWebSocketServer {
     this.wss.on('connection', (socket: WebSocket) => {
       const clientId = this.connections.addClient(socket);
 
-      // Send welcome message
       this.connections.sendTo(clientId, {
         command: 'WELCOME',
         params: ['Connected to vhs-irc WebSocket server'],

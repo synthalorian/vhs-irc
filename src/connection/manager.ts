@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import { IrcMessage } from '../irc/types';
+import { MessageRepository } from '../db/messages';
 
 export interface ClientConnection {
   id: string;
@@ -9,9 +10,18 @@ export interface ClientConnection {
   channels: Set<string>;
 }
 
+export interface ConnectionManagerOptions {
+  messageRepository?: MessageRepository;
+}
+
 export class ConnectionManager {
   private clients = new Map<string, ClientConnection>();
   private messageHandlers: ((clientId: string, msg: IrcMessage) => void)[] = [];
+  private messageRepository?: MessageRepository;
+
+  constructor(options?: ConnectionManagerOptions) {
+    this.messageRepository = options?.messageRepository;
+  }
 
   addClient(socket: WebSocket): string {
     const id = this.generateId();
@@ -65,10 +75,29 @@ export class ConnectionManager {
     this.messageHandlers.push(handler);
   }
 
-  private handleMessage(clientId: string, data: Buffer | ArrayBuffer | Buffer[]): void {
+  private async handleMessage(clientId: string, data: Buffer | ArrayBuffer | Buffer[]): Promise<void> {
     try {
       const text = data.toString();
       const msg = JSON.parse(text) as IrcMessage;
+
+      if (this.messageRepository && msg.command === 'PRIVMSG') {
+        const channel = msg.params[0]?.startsWith('#') ? msg.params[0] : undefined;
+        const content = msg.params[1] || '';
+        const client = this.clients.get(clientId);
+        const nick = client?.nick || 'unknown';
+
+        try {
+          await this.messageRepository.create({
+            channel,
+            nick,
+            content,
+            command: msg.command,
+          });
+        } catch (err) {
+          console.error('Failed to persist message:', err);
+        }
+      }
+
       for (const handler of this.messageHandlers) {
         handler(clientId, msg);
       }
