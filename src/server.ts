@@ -6,6 +6,9 @@ import { getDatabase, MessageRepository } from './db';
 const app = express();
 const httpServer = createServer(app);
 
+app.use('/node_modules', express.static('node_modules'));
+app.use(express.static('public'));
+
 async function main() {
   const db = getDatabase();
   await db.init();
