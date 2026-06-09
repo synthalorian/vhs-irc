@@ -186,67 +186,67 @@ describe('ChannelRepository', () => {
   });
 
   it('creates a channel', async () => {
-    const ch = await channels.create({ name: '#general' });
+    const ch = await channels.create({ networkId: 1, name: '#general' });
     assert.strictEqual(ch.name, '#general');
     assert.ok(ch.id > 0);
     assert.ok(ch.created_at > 0);
   });
 
   it('creates a channel with topic', async () => {
-    const ch = await channels.create({ name: '#general', topic: 'General chat' });
+    const ch = await channels.create({ networkId: 1, name: '#general', topic: 'General chat' });
     assert.strictEqual(ch.topic, 'General chat');
   });
 
   it('finds channel by id', async () => {
-    const created = await channels.create({ name: '#test' });
+    const created = await channels.create({ networkId: 1, name: '#test' });
     const found = await channels.findById(created.id);
     assert.ok(found);
     assert.strictEqual(found!.name, '#test');
   });
 
   it('finds channel by name', async () => {
-    await channels.create({ name: '#general' });
+    await channels.create({ networkId: 1, name: '#general' });
     const found = await channels.findByName('#general');
     assert.ok(found);
     assert.strictEqual(found!.name, '#general');
   });
 
   it('finds all channels', async () => {
-    await channels.create({ name: '#alpha' });
-    await channels.create({ name: '#beta' });
+    await channels.create({ networkId: 1, name: '#alpha' });
+    await channels.create({ networkId: 1, name: '#beta' });
 
     const all = await channels.findAll();
     assert.strictEqual(all.length, 2);
   });
 
   it('updates channel topic', async () => {
-    const created = await channels.create({ name: '#general' });
+    const created = await channels.create({ networkId: 1, name: '#general' });
     const updated = await channels.update(created.id, { topic: 'New topic' });
     assert.strictEqual(updated!.topic, 'New topic');
   });
 
   it('updates topic by name', async () => {
-    await channels.create({ name: '#general' });
-    await channels.updateTopic('#general', 'Updated topic');
+    await channels.create({ networkId: 1, name: '#general' });
+    await channels.updateTopic(1, '#general', 'Updated topic');
     const found = await channels.findByName('#general');
     assert.strictEqual(found!.topic, 'Updated topic');
   });
 
   it('deletes channel by id', async () => {
-    const ch = await channels.create({ name: '#temp' });
+    const ch = await channels.create({ networkId: 1, name: '#temp' });
     await channels.deleteById(ch.id);
     assert.strictEqual(await channels.findById(ch.id), undefined);
   });
 
   it('deletes channel by name', async () => {
-    await channels.create({ name: '#temp' });
+    await channels.create({ networkId: 1, name: '#temp' });
     await channels.deleteByName('#temp');
     assert.strictEqual(await channels.findByName('#temp'), undefined);
   });
 
   it('counts channels', async () => {
     assert.strictEqual(await channels.count(), 0);
-    await channels.create({ name: '#general' });
+    await channels.create({ networkId: 1, name: '#general' });
     assert.strictEqual(await channels.count(), 1);
   });
 });
@@ -495,7 +495,7 @@ describe('Integration', () => {
       realname: 'Alice Smith',
     });
 
-    const channel = await channels.create({
+    const channel = await channels.create({ networkId: 1,
       name: '#general',
       topic: 'General discussion',
     });
@@ -528,7 +528,7 @@ describe('Integration', () => {
   });
 
   it('persists file upload workflow', async () => {
-    const channel = await channels.create({ name: '#general', topic: 'General' });
+    const channel = await channels.create({ networkId: 1, name: '#general', topic: 'General' });
     const user = await users.create({ nick: 'alice' });
 
     const upload = await uploads.create({
