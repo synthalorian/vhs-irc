@@ -4,8 +4,9 @@ import multer from 'multer';
 import { mkdirSync } from 'fs';
 import { join, extname } from 'path';
 import { IrcWebSocketServer } from './websocket/server';
-import { getDatabase, MessageRepository, UploadRepository, NetworkRepository, ChannelRepository } from './db';
+import { getDatabase, MessageRepository, UploadRepository, NetworkRepository, ChannelRepository, UserRepository } from './db';
 import { BouncerManager } from './bouncer';
+import { OAuth2Provider, createAuthMiddleware, handleOAuthError } from './auth';
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,6 +40,29 @@ async function main() {
   const uploadRepo = new UploadRepository(db);
   const networkRepo = new NetworkRepository(db);
   const channelRepo = new ChannelRepository(db);
+  const userRepo = new UserRepository(db);
+
+  const authProvider = new OAuth2Provider({
+    accessTokenTtlSeconds: 900,
+    refreshTokenTtlSeconds: 604800,
+    authCodeTtlSeconds: 600,
+  });
+
+  authProvider.setCredentialVerifier({
+    async verify(username: string, password: string) {
+      const user = await userRepo.findByNick(username);
+      if (!user || !user.password_hash) return null;
+      if (user.password_hash !== password) return null;
+      return { userId: String(user.id), nick: user.nick };
+    },
+  });
+
+  authProvider.registerClient({
+    clientId: 'vhs-irc-web',
+    name: 'vhs-irc Web Client',
+    redirectUris: [process.env.VHS_IRC_REDIRECT_URI || 'http://localhost:3000/oauth/callback'],
+    allowedGrants: ['authorization_code', 'refresh_token', 'password'],
+  });
 
   const bouncer = new BouncerManager({
     networkRepository: networkRepo,
@@ -47,12 +71,82 @@ async function main() {
   });
   await bouncer.init();
 
+  const authOptional = createAuthMiddleware(authProvider, { optional: true });
+
+  app.get('/auth/authorize', authOptional, (req, res, next) => {
+    try {
+      if (!req.auth) {
+        res.status(401).json({ error: 'invalid_token', error_description: 'Authentication required' });
+        return;
+      }
+      const params = req.query as Record<string, string | undefined>;
+      const result = authProvider.authorize(
+        {
+          response_type: params.response_type || 'code',
+          client_id: params.client_id || '',
+          redirect_uri: params.redirect_uri || '',
+          scope: params.scope,
+          state: params.state,
+          code_challenge: params.code_challenge,
+          code_challenge_method: params.code_challenge_method,
+        },
+        req.auth.userId
+      );
+      const url = new URL(result.redirectUri);
+      url.searchParams.set('code', result.code);
+      if (result.state) url.searchParams.set('state', result.state);
+      res.redirect(url.toString());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/auth/token', async (req, res, next) => {
+    try {
+      const response = await authProvider.token(req.body);
+      res.json(response);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/auth/revoke', (req, res, next) => {
+    try {
+      const token = req.body.token;
+      if (token) authProvider.revoke(token);
+      res.json({ success: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/auth/introspect', authOptional, (req, res, next) => {
+    try {
+      const token = (req.query.token as string) || '';
+      const result = authProvider.introspect(token);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/auth/me', authOptional, (req, res) => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'invalid_token', error_description: 'Authentication required' });
+      return;
+    }
+    res.json({ userId: req.auth.userId, scope: req.auth.scope });
+  });
+
+  app.use(handleOAuthError);
+
   const wsServer = new IrcWebSocketServer({
     httpServer,
     path: '/ws',
     messageRepository: messageRepo,
     uploadRepository: uploadRepo,
     bouncerManager: bouncer,
+    authProvider,
   });
 
   app.post('/api/upload', upload.single('file'), async (req, res) => {
@@ -203,7 +297,7 @@ async function main() {
     });
   });
 
-  return { app, httpServer, wsServer, db, bouncer };
+  return { app, httpServer, wsServer, db, bouncer, authProvider };
 }
 
 const serverPromise = main();
