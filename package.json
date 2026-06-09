@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "node --test dist/**/*.test.js",
+    "test:watch": "node --test --watch dist/**/*.test.js"
   },
   "dependencies": {
     "express": "^4.19",
