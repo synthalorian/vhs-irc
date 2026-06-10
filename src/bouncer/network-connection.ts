@@ -39,6 +39,7 @@ export class NetworkConnection {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentNick: string;
+  private disconnecting = false;
   public readonly channels = new Set<string>();
 
   constructor(
@@ -77,6 +78,7 @@ export class NetworkConnection {
       return;
     }
 
+    this.disconnecting = false;
     this.state = 'connecting';
     this.buffer = '';
 
@@ -87,16 +89,19 @@ export class NetworkConnection {
 
     this.socket.setEncoding('utf8');
 
-    // Connection timeout for tests: destroy socket if not connected within 2s
+    // Connection timeout: destroy socket if not connected within 2 seconds
     this.connectTimeout = setTimeout(() => {
+      if (this.disconnecting) return;
       if (this.socket && this.state === 'connecting') {
         this.socket.destroy();
         this.socket = null;
         this.state = 'disconnected';
+        this.events.onError(new Error('Connection timeout'));
       }
     }, 2000);
 
     this.socket.on('connect', () => {
+      if (this.disconnecting) return;
       if (this.connectTimeout) {
         clearTimeout(this.connectTimeout);
         this.connectTimeout = null;
@@ -109,10 +114,12 @@ export class NetworkConnection {
     });
 
     this.socket.on('data', (data: string) => {
+      if (this.disconnecting) return;
       this.handleData(data);
     });
 
     this.socket.on('close', () => {
+      if (this.disconnecting) return;
       this.cleanup();
       this.state = 'disconnected';
       this.events.onDisconnect();
@@ -120,6 +127,7 @@ export class NetworkConnection {
     });
 
     this.socket.on('error', (err: Error) => {
+      if (this.disconnecting) return;
       if (this.connectTimeout) {
         clearTimeout(this.connectTimeout);
         this.connectTimeout = null;
@@ -129,14 +137,11 @@ export class NetworkConnection {
   }
 
   disconnect(): void {
+    this.disconnecting = true;
     this.clearReconnect();
-    if (this.connectTimeout) {
-      clearTimeout(this.connectTimeout);
-      this.connectTimeout = null;
-    }
     if (this.socket) {
-      this.socket.removeAllListeners();
       this.socket.destroy();
+      this.socket.removeAllListeners();
       this.socket = null;
     }
     this.cleanup();
@@ -271,6 +276,10 @@ export class NetworkConnection {
   private cleanup(): void {
     this.buffer = '';
     this.clearReconnect();
+    if (this.connectTimeout) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
+    }
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
