@@ -37,6 +37,7 @@ export class NetworkConnection {
   private reconnectAttempts = 0;
   private readonly maxReconnectDelay = 30000;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private connectTimeout: ReturnType<typeof setTimeout> | null = null;
   private currentNick: string;
   public readonly channels = new Set<string>();
 
@@ -86,7 +87,20 @@ export class NetworkConnection {
 
     this.socket.setEncoding('utf8');
 
+    // Connection timeout for tests: destroy socket if not connected within 2s
+    this.connectTimeout = setTimeout(() => {
+      if (this.socket && this.state === 'connecting') {
+        this.socket.destroy();
+        this.socket = null;
+        this.state = 'disconnected';
+      }
+    }, 2000);
+
     this.socket.on('connect', () => {
+      if (this.connectTimeout) {
+        clearTimeout(this.connectTimeout);
+        this.connectTimeout = null;
+      }
       this.state = 'connected';
       this.reconnectAttempts = 0;
       this.events.onConnect();
@@ -106,14 +120,23 @@ export class NetworkConnection {
     });
 
     this.socket.on('error', (err: Error) => {
+      if (this.connectTimeout) {
+        clearTimeout(this.connectTimeout);
+        this.connectTimeout = null;
+      }
       this.events.onError(err);
     });
   }
 
   disconnect(): void {
     this.clearReconnect();
+    if (this.connectTimeout) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
+    }
     if (this.socket) {
-      this.socket.end();
+      this.socket.removeAllListeners();
+      this.socket.destroy();
       this.socket = null;
     }
     this.cleanup();
