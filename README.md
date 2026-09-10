@@ -108,7 +108,7 @@ See `PLAN.md` for detailed architecture decisions and implementation notes.
 
 ## License
 
-MIT
+Apache-2.0
 
 ---
 
