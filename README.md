@@ -1,3 +1,5 @@
+![vhs-irc](.github/preview.png)
+
 # vhs-irc
 
 > Modern IRC bouncer + client hybrid with persistent history, file uploads, and a retro terminal UI in the browser. WebSocket bridge to real IRC networks.
