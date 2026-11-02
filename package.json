@@ -11,7 +11,7 @@
     "test:watch": "node --test --watch dist/**/*.test.js"
   },
   "dependencies": {
-    "express": "^4.19",
+    "express": "^4.22",
     "ws": "^8.16",
     "sqlite3": "^5.1",
     "xterm": "^5.3",
