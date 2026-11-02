@@ -13,7 +13,7 @@
   "dependencies": {
     "express": "^4.19",
     "ws": "^8.16",
-    "sqlite3": "^5.1",
+    "sqlite3": "^6.0",
     "xterm": "^5.3",
     "xterm-addon-fit": "^0.8",
     "multer": "^2.5.0"
